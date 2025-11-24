@@ -2,15 +2,16 @@
 // Simple text persistence using PHP 5.x
 // Now also sends the saved content to an AI agent.
 $filePath = __DIR__ . '/texto-guardado.txt';
+$historyPath = __DIR__ . '/consultas-historial.txt';
 
 $agentConfig = [
     'endpoint' => 'https://updm4qp227hrrp43wru3np4h.agents.do-ai.run/api/v1/chat/completions',
     'apiKey'   => '9W60bykvIihVVtK2GPBp6dcsmBh8xxIY',
 ];
 
-function sendToAgent($content, array $config)
+function sendToAgent($contextContent, $userQuery, array $config)
 {
-    if (trim($content) === '') {
+    if (trim($contextContent) === '' && trim($userQuery) === '') {
         return ['ok' => false, 'error' => 'No hay contenido para enviar al agente.'];
     }
 
@@ -18,9 +19,12 @@ function sendToAgent($content, array $config)
         return ['ok' => false, 'error' => 'El agente no está configurado correctamente.'];
     }
 
+    $messageContent = '** PROMPT DE CONTEXTO **' . "\n" . $contextContent;
+    $messageContent .= "\n\n" . '** CONSULTA DEL USUARIO **' . "\n" . $userQuery;
+
     $payload = [
         'messages' => [
-            ['role' => 'user', 'content' => $content],
+            ['role' => 'user', 'content' => $messageContent],
         ],
         'temperature' => 0.4,
         'max_tokens' => 15000,
@@ -89,6 +93,63 @@ function sendToAgent($content, array $config)
     return ['ok' => true, 'reply' => $contentReply];
 }
 
+function loadHistory($path)
+{
+    if (!file_exists($path)) {
+        return [];
+    }
+
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $history = [];
+
+    foreach ($lines as $line) {
+        $decoded = json_decode($line, true);
+        if (is_array($decoded) && isset($decoded['id'])) {
+            $history[] = $decoded;
+        }
+    }
+
+    return $history;
+}
+
+function saveHistory(array $history, $path)
+{
+    $content = '';
+    foreach ($history as $entry) {
+        $content .= json_encode($entry, JSON_UNESCAPED_UNICODE) . "\n";
+    }
+
+    file_put_contents($path, $content);
+}
+
+function orderHistory(array $history)
+{
+    usort($history, function ($a, $b) {
+        $timeA = isset($a['timestamp']) ? (int) $a['timestamp'] : 0;
+        $timeB = isset($b['timestamp']) ? (int) $b['timestamp'] : 0;
+        if ($timeA === $timeB) {
+            return 0;
+        }
+
+        return ($timeA > $timeB) ? -1 : 1;
+    });
+
+    return $history;
+}
+
+function deleteHistoryEntry($path, $id)
+{
+    $history = loadHistory($path);
+    $filtered = [];
+    foreach ($history as $entry) {
+        if (!isset($entry['id']) || $entry['id'] !== $id) {
+            $filtered[] = $entry;
+        }
+    }
+
+    saveHistory($filtered, $path);
+}
+
 function setCurlCaBundle($ch)
 {
     if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
@@ -100,25 +161,46 @@ function setCurlCaBundle($ch)
 }
 
 $savedContent = '';
+$userQuery = '';
 $agentReply = null;
 $agentError = null;
+$history = orderHistory(loadHistory($historyPath));
 
 if (file_exists($filePath)) {
     $savedContent = file_get_contents($filePath);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $contenido = isset($_POST['contenido']) ? $_POST['contenido'] : '';
-    file_put_contents($filePath, $contenido);
-
-    $agentResult = sendToAgent($contenido, $agentConfig);
-    if ($agentResult['ok']) {
-        $agentReply = $agentResult['reply'];
+    if (isset($_POST['delete_id'])) {
+        deleteHistoryEntry($historyPath, $_POST['delete_id']);
+        $history = orderHistory(loadHistory($historyPath));
     } else {
-        $agentError = $agentResult['error'];
-    }
+        $contenido = isset($_POST['contenido']) ? $_POST['contenido'] : '';
+        $consulta = isset($_POST['consulta']) ? $_POST['consulta'] : '';
 
-    $savedContent = $contenido;
+        file_put_contents($filePath, $contenido);
+
+        $agentResult = sendToAgent($contenido, $consulta, $agentConfig);
+        if ($agentResult['ok']) {
+            $agentReply = $agentResult['reply'];
+
+            $historyEntry = [
+                'id' => uniqid('consulta_', true),
+                'timestamp' => time(),
+                'consulta' => $consulta,
+                'respuesta' => $agentReply,
+            ];
+
+            array_unshift($history, $historyEntry);
+            $history = orderHistory($history);
+            saveHistory($history, $historyPath);
+        } else {
+            $agentError = $agentResult['error'];
+        }
+
+        $savedContent = $contenido;
+        $userQuery = $consulta;
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -136,7 +218,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: #f6f6f6;
         }
         .container {
-            max-width: 900px;
+            width: 95%;
+            max-width: 1400px;
             margin: 0 auto;
         }
         h1 {
@@ -151,6 +234,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .CodeMirror {
             border: 1px solid #ccc;
             height: 400px;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+            min-height: 120px;
+            resize: vertical;
         }
         .actions {
             margin-top: 12px;
@@ -181,13 +274,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .agent-reply .markdown-body {
             padding: 0;
         }
+        .history {
+            margin-top: 20px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+        .history-item {
+            border-bottom: 1px solid #e2e2e2;
+            padding: 10px 0;
+        }
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        .history-item h3 {
+            margin: 0 0 6px 0;
+            font-size: 16px;
+        }
+        .history-item small {
+            display: block;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .history-item .markdown-body {
+            padding: 0;
+        }
+        .history-actions {
+            margin-top: 8px;
+            text-align: right;
+        }
+        .history-actions form {
+            display: inline;
+        }
+        .delete-button {
+            background: #dc3545;
+        }
+        .delete-button:hover {
+            background: #c82333;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Guardar texto</h1>
         <form method="post">
+            <h2>Prompt de contexto</h2>
             <textarea id="contenido" name="contenido"><?php echo htmlspecialchars($savedContent, ENT_QUOTES, 'UTF-8'); ?></textarea>
+            <h2>Consulta del usuario</h2>
+            <textarea id="consulta" name="consulta" placeholder="Escribe la consulta para el agente..."><?php echo htmlspecialchars($userQuery, ENT_QUOTES, 'UTF-8'); ?></textarea>
             <div class="actions">
                 <button type="submit">Guardar</button>
             </div>
@@ -203,6 +338,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p><?php echo htmlspecialchars($agentError, ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
         <?php endif; ?>
+
+        <div class="history">
+            <h2>Historial de consultas</h2>
+            <?php if (!empty($history)): ?>
+                <?php foreach ($history as $entry): ?>
+                    <div class="history-item">
+                        <h3><?php echo htmlspecialchars(substr($entry['consulta'], 0, 80) . (strlen($entry['consulta']) > 80 ? '…' : ''), ENT_QUOTES, 'UTF-8'); ?></h3>
+                        <small><?php echo isset($entry['timestamp']) ? date('d/m/Y H:i:s', $entry['timestamp']) : ''; ?></small>
+                        <div>
+                            <strong>Consulta</strong>
+                            <div class="markdown-body markdown-content" data-content="<?php echo htmlspecialchars($entry['consulta'], ENT_QUOTES, 'UTF-8'); ?>"></div>
+                        </div>
+                        <div>
+                            <strong>Respuesta</strong>
+                            <div class="markdown-body markdown-content" data-content="<?php echo htmlspecialchars($entry['respuesta'], ENT_QUOTES, 'UTF-8'); ?>"></div>
+                        </div>
+                        <div class="history-actions">
+                            <form method="post">
+                                <input type="hidden" name="delete_id" value="<?php echo htmlspecialchars($entry['id'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <button type="submit" class="delete-button">Eliminar</button>
+                            </form>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <p>No hay consultas guardadas todavía.</p>
+            <?php endif; ?>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
@@ -230,6 +393,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 replyBody.textContent = 'La respuesta del agente no se pudo interpretar.';
             }
         }
+
+        function renderMarkdownElements() {
+            var blocks = document.querySelectorAll('.markdown-content');
+            blocks.forEach(function(block) {
+                var content = block.getAttribute('data-content') || '';
+                block.innerHTML = marked.parse(content);
+            });
+        }
+
+        renderMarkdownElements();
     </script>
 </body>
 </html>
