@@ -1,17 +1,84 @@
 <?php
 // Simple text persistence using PHP 5.x
+// Now also sends the saved content to an AI agent.
 $filePath = __DIR__ . '/texto-guardado.txt';
+
+$agentConfig = [
+    'endpoint' => 'https://rrylnijrxbyrcsc6fdkcm5re.agents.do-ai.run/api/v1/chat/completions',
+    'apiKey'   => '_pHTJeR2USDaYrcgR8GLjeipD544U3Vs',
+];
+
+function sendToAgent($content, array $config)
+{
+    if (trim($content) === '') {
+        return ['ok' => false, 'error' => 'No hay contenido para enviar al agente.'];
+    }
+
+    if (empty($config['endpoint']) || empty($config['apiKey'])) {
+        return ['ok' => false, 'error' => 'El agente no está configurado correctamente.'];
+    }
+
+    $payload = [
+        'messages' => [
+            ['role' => 'user', 'content' => $content],
+        ],
+        'temperature' => 0.4,
+        'max_tokens' => 600,
+    ];
+
+    $ch = curl_init($config['endpoint']);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'Authorization: Bearer ' . $config['apiKey'],
+        ],
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 10,
+    ]);
+
+    $response = curl_exec($ch);
+    $curlError = curl_error($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($curlError) {
+        return ['ok' => false, 'error' => 'Error de conexión: ' . $curlError];
+    }
+
+    if ($httpCode !== 200) {
+        return ['ok' => false, 'error' => 'Respuesta HTTP inesperada: ' . $httpCode, 'raw' => $response];
+    }
+
+    $decoded = json_decode($response, true);
+    $contentReply = isset($decoded['choices'][0]['message']['content']) ? $decoded['choices'][0]['message']['content'] : '';
+
+    return ['ok' => true, 'reply' => $contentReply];
+}
+
+$savedContent = '';
+$agentReply = null;
+$agentError = null;
+
+if (file_exists($filePath)) {
+    $savedContent = file_get_contents($filePath);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $contenido = isset($_POST['contenido']) ? $_POST['contenido'] : '';
     file_put_contents($filePath, $contenido);
-    header('Location: ' . $_SERVER['PHP_SELF']);
-    exit;
-}
 
-$savedContent = '';
-if (file_exists($filePath)) {
-    $savedContent = file_get_contents($filePath);
+    $agentResult = sendToAgent($contenido, $agentConfig);
+    if ($agentResult['ok']) {
+        $agentReply = $agentResult['reply'];
+    } else {
+        $agentError = $agentResult['error'];
+    }
+
+    $savedContent = $contenido;
 }
 ?>
 <!DOCTYPE html>
@@ -48,7 +115,7 @@ if (file_exists($filePath)) {
             margin-top: 12px;
             text-align: right;
         }
-        button {
+        button { 
             padding: 10px 16px;
             background: #007bff;
             color: #fff;
@@ -59,6 +126,20 @@ if (file_exists($filePath)) {
         }
         button:hover {
             background: #0069d9;
+        }
+        .agent-reply, .agent-error {
+            margin-top: 16px;
+            background: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+        .agent-reply pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .agent-error h2 {
+            color: #c00;
         }
     </style>
 </head>
@@ -71,6 +152,17 @@ if (file_exists($filePath)) {
                 <button type="submit">Guardar</button>
             </div>
         </form>
+        <?php if ($agentReply !== null): ?>
+            <div class="agent-reply">
+                <h2>Respuesta del agente</h2>
+                <pre><?php echo htmlspecialchars($agentReply, ENT_QUOTES, 'UTF-8'); ?></pre>
+            </div>
+        <?php elseif ($agentError !== null): ?>
+            <div class="agent-error">
+                <h2>Error al consultar al agente</h2>
+                <p><?php echo htmlspecialchars($agentError, ENT_QUOTES, 'UTF-8'); ?></p>
+            </div>
+        <?php endif; ?>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
