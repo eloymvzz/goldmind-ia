@@ -365,14 +365,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
     <div class="container">
-        <h1>Guardar texto</h1>
+        <h1>Consulta IA GoldMind</h1>
         <form method="post">
             <h2>Prompt de contexto</h2>
             <textarea id="contenido" name="contenido"><?php echo htmlspecialchars($savedContent, ENT_QUOTES, 'UTF-8'); ?></textarea>
             <h2>Consulta del usuario</h2>
             <textarea id="consulta" name="consulta" placeholder="Escribe la consulta para el agente..."><?php echo htmlspecialchars($userQuery, ENT_QUOTES, 'UTF-8'); ?></textarea>
             <div class="actions">
-                <button type="submit">Guardar</button>
+                <button type="submit">Ejecutar</button>
             </div>
         </form>
         <?php if ($agentReply !== null): ?>
