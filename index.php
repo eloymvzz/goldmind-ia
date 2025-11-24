@@ -23,7 +23,7 @@ function sendToAgent($content, array $config)
             ['role' => 'user', 'content' => $content],
         ],
         'temperature' => 0.4,
-        'max_tokens' => 600,
+        'max_tokens' => 15000,
     ];
 
     $ch = curl_init($config['endpoint']);
@@ -61,7 +61,30 @@ function sendToAgent($content, array $config)
     }
 
     $decoded = json_decode($response, true);
-    $contentReply = isset($decoded['choices'][0]['message']['content']) ? $decoded['choices'][0]['message']['content'] : '';
+
+    $contentReply = '';
+    if (isset($decoded['choices'][0]['message']['content'])) {
+        $messageContent = $decoded['choices'][0]['message']['content'];
+        if (is_array($messageContent)) {
+            foreach ($messageContent as $segment) {
+                if (is_array($segment) && isset($segment['text'])) {
+                    $contentReply .= $segment['text'];
+                } elseif (is_string($segment)) {
+                    $contentReply .= $segment;
+                }
+            }
+        } elseif (is_string($messageContent)) {
+            $contentReply = $messageContent;
+        }
+    }
+
+    if ($contentReply === '' && isset($decoded['choices'][0]['text']) && is_string($decoded['choices'][0]['text'])) {
+        $contentReply = $decoded['choices'][0]['text'];
+    }
+
+    if ($contentReply === '' && is_array($decoded)) {
+        $contentReply = json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    }
 
     return ['ok' => true, 'reply' => $contentReply];
 }
@@ -104,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <title>Editor de texto</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown-light.min.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -151,12 +175,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: 6px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.08);
         }
-        .agent-reply pre {
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
         .agent-error h2 {
             color: #c00;
+        }
+        .agent-reply .markdown-body {
+            padding: 0;
         }
     </style>
 </head>
@@ -170,9 +193,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </form>
         <?php if ($agentReply !== null): ?>
-            <div class="agent-reply">
+            <div class="agent-reply" id="agent-reply" data-content="<?php echo htmlspecialchars($agentReply, ENT_QUOTES, 'UTF-8'); ?>">
                 <h2>Respuesta del agente</h2>
-                <pre><?php echo htmlspecialchars($agentReply, ENT_QUOTES, 'UTF-8'); ?></pre>
+                <div id="agent-reply-body" class="markdown-body"></div>
             </div>
         <?php elseif ($agentError !== null): ?>
             <div class="agent-error">
@@ -186,6 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/xml/xml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
     <script>
         var textarea = document.getElementById('contenido');
         var editor = CodeMirror.fromTextArea(textarea, {
@@ -195,6 +219,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             lineWrapping: true,
             theme: 'default'
         });
+
+        var replyContainer = document.getElementById('agent-reply');
+        if (replyContainer) {
+            var rawContent = replyContainer.getAttribute('data-content') || '';
+            var replyBody = document.getElementById('agent-reply-body');
+            if (rawContent.trim().length > 0 && replyBody) {
+                replyBody.innerHTML = marked.parse(rawContent);
+            } else if (replyBody) {
+                replyBody.textContent = 'La respuesta del agente no se pudo interpretar.';
+            }
+        }
     </script>
 </body>
 </html>
