@@ -27,6 +27,7 @@ function sendToAgent($content, array $config)
     ];
 
     $ch = curl_init($config['endpoint']);
+    setCurlCaBundle($ch);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
@@ -46,7 +47,13 @@ function sendToAgent($content, array $config)
     curl_close($ch);
 
     if ($curlError) {
-        return ['ok' => false, 'error' => 'Error de conexión: ' . $curlError];
+        $friendlyError = 'Error de conexión: ' . $curlError;
+
+        if (stripos($curlError, 'SSL certificate problem') !== false) {
+            $friendlyError .= ' Verifica que el sistema pueda validar certificados raíz. En Windows asegúrate de que cacert.pem esté disponible y configurado; en Linux confirma que el paquete de certificados del sistema esté instalado o define CURLOPT_CAINFO con la ruta adecuada.';
+        }
+
+        return ['ok' => false, 'error' => $friendlyError];
     }
 
     if ($httpCode !== 200) {
@@ -57,6 +64,16 @@ function sendToAgent($content, array $config)
     $contentReply = isset($decoded['choices'][0]['message']['content']) ? $decoded['choices'][0]['message']['content'] : '';
 
     return ['ok' => true, 'reply' => $contentReply];
+}
+
+function setCurlCaBundle($ch)
+{
+    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        $winCa = 'D:\\AppServ\\cacert.pem';
+        if (file_exists($winCa)) {
+            curl_setopt($ch, CURLOPT_CAINFO, $winCa);
+        }
+    }
 }
 
 $savedContent = '';
