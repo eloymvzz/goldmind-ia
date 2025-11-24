@@ -281,37 +281,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: 6px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.08);
         }
+        .history-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
         .history-item {
             border-bottom: 1px solid #e2e2e2;
-            padding: 10px 0;
+            padding: 12px 0;
         }
         .history-item:last-child {
             border-bottom: none;
         }
-        .history-item h3 {
+        .history-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .history-header h3 {
             margin: 0 0 6px 0;
             font-size: 16px;
         }
-        .history-item small {
+        .history-header small {
             display: block;
             color: #666;
-            margin-bottom: 8px;
-        }
-        .history-item .markdown-body {
-            padding: 0;
+            margin-bottom: 0;
         }
         .history-actions {
-            margin-top: 8px;
-            text-align: right;
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
         .history-actions form {
             display: inline;
+        }
+        .view-button {
+            background: #17a2b8;
+        }
+        .view-button:hover {
+            background: #138496;
         }
         .delete-button {
             background: #dc3545;
         }
         .delete-button:hover {
             background: #c82333;
+        }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1000;
+        }
+        .modal {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 900px;
+            width: 100%;
+            max-height: 90vh;
+            overflow: auto;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        }
+        .modal h3 {
+            margin-top: 0;
+        }
+        .modal-close {
+            background: #6c757d;
+        }
+        .modal-close:hover {
+            background: #5a6268;
         }
     </style>
 </head>
@@ -342,29 +386,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="history">
             <h2>Historial de consultas</h2>
             <?php if (!empty($history)): ?>
-                <?php foreach ($history as $entry): ?>
-                    <div class="history-item">
-                        <h3><?php echo htmlspecialchars(substr($entry['consulta'], 0, 80) . (strlen($entry['consulta']) > 80 ? '…' : ''), ENT_QUOTES, 'UTF-8'); ?></h3>
-                        <small><?php echo isset($entry['timestamp']) ? date('d/m/Y H:i:s', $entry['timestamp']) : ''; ?></small>
-                        <div>
-                            <strong>Consulta</strong>
-                            <div class="markdown-body markdown-content" data-content="<?php echo htmlspecialchars($entry['consulta'], ENT_QUOTES, 'UTF-8'); ?>"></div>
-                        </div>
-                        <div>
-                            <strong>Respuesta</strong>
-                            <div class="markdown-body markdown-content" data-content="<?php echo htmlspecialchars($entry['respuesta'], ENT_QUOTES, 'UTF-8'); ?>"></div>
-                        </div>
-                        <div class="history-actions">
-                            <form method="post">
-                                <input type="hidden" name="delete_id" value="<?php echo htmlspecialchars($entry['id'], ENT_QUOTES, 'UTF-8'); ?>">
-                                <button type="submit" class="delete-button">Eliminar</button>
-                            </form>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
+                <ul class="history-list">
+                    <?php foreach ($history as $entry): ?>
+                        <li class="history-item">
+                            <div class="history-header">
+                                <div>
+                                    <h3><?php echo htmlspecialchars(substr($entry['consulta'], 0, 80) . (strlen($entry['consulta']) > 80 ? '…' : ''), ENT_QUOTES, 'UTF-8'); ?></h3>
+                                    <small><?php echo isset($entry['timestamp']) ? date('d/m/Y H:i:s', $entry['timestamp']) : ''; ?></small>
+                                </div>
+                                <div class="history-actions">
+                                    <button type="button" class="view-button" data-consulta="<?php echo htmlspecialchars($entry['consulta'], ENT_QUOTES, 'UTF-8'); ?>" data-respuesta="<?php echo htmlspecialchars($entry['respuesta'], ENT_QUOTES, 'UTF-8'); ?>">Ver detalle</button>
+                                    <form method="post">
+                                        <input type="hidden" name="delete_id" value="<?php echo htmlspecialchars($entry['id'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <button type="submit" class="delete-button">Eliminar</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
             <?php else: ?>
                 <p>No hay consultas guardadas todavía.</p>
             <?php endif; ?>
+        </div>
+    </div>
+
+    <div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="modal">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                <h3 id="modal-title">Detalle de la consulta</h3>
+                <button type="button" class="modal-close" id="modal-close">Cerrar</button>
+            </div>
+            <div>
+                <h4>Consulta</h4>
+                <div id="modal-consulta" class="markdown-body"></div>
+            </div>
+            <div style="margin-top: 12px;">
+                <h4>Respuesta</h4>
+                <div id="modal-respuesta" class="markdown-body"></div>
+            </div>
         </div>
     </div>
 
@@ -402,7 +462,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             });
         }
 
+        function openModal(consulta, respuesta) {
+            var overlay = document.getElementById('modal-overlay');
+            var consultaContainer = document.getElementById('modal-consulta');
+            var respuestaContainer = document.getElementById('modal-respuesta');
+
+            consultaContainer.innerHTML = marked.parse(consulta || '');
+            respuestaContainer.innerHTML = marked.parse(respuesta || '');
+
+            overlay.style.display = 'flex';
+            overlay.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeModal() {
+            var overlay = document.getElementById('modal-overlay');
+            overlay.style.display = 'none';
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+
         renderMarkdownElements();
+
+        var viewButtons = document.querySelectorAll('.view-button');
+        viewButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                var consulta = button.getAttribute('data-consulta') || '';
+                var respuesta = button.getAttribute('data-respuesta') || '';
+                openModal(consulta, respuesta);
+            });
+        });
+
+        var modalClose = document.getElementById('modal-close');
+        if (modalClose) {
+            modalClose.addEventListener('click', closeModal);
+        }
+
+        var modalOverlay = document.getElementById('modal-overlay');
+        if (modalOverlay) {
+            modalOverlay.addEventListener('click', function(event) {
+                if (event.target === modalOverlay) {
+                    closeModal();
+                }
+            });
+        }
     </script>
 </body>
 </html>
