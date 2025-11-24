@@ -174,3 +174,5 @@
 
 
 ** CONSULTA DEL USUARIO **
+
+Qué actividades me recomiendas implementar, considerando los promedios que tienen los alumnos?
