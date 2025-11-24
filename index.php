@@ -4,10 +4,14 @@
 $filePath = __DIR__ . '/texto-guardado.txt';
 $historyPath = __DIR__ . '/consultas-historial.txt';
 
-$agentConfig = [
-    'endpoint' => 'https://updm4qp227hrrp43wru3np4h.agents.do-ai.run/api/v1/chat/completions',
-    'apiKey'   => '9W60bykvIihVVtK2GPBp6dcsmBh8xxIY',
-];
+$configPath = __DIR__ . '/agent-config.php';
+$agentConfig = [];
+if (file_exists($configPath)) {
+    $loadedConfig = include $configPath;
+    if (is_array($loadedConfig)) {
+        $agentConfig = $loadedConfig;
+    }
+}
 
 function sendToAgent($contextContent, $userQuery, array $config)
 {
