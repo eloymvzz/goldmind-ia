@@ -4,8 +4,8 @@
 $filePath = __DIR__ . '/texto-guardado.txt';
 
 $agentConfig = [
-    'endpoint' => 'https://rrylnijrxbyrcsc6fdkcm5re.agents.do-ai.run/api/v1/chat/completions',
-    'apiKey'   => '_pHTJeR2USDaYrcgR8GLjeipD544U3Vs',
+    'endpoint' => 'https://updm4qp227hrrp43wru3np4h.agents.do-ai.run/api/v1/chat/completions',
+    'apiKey'   => '9W60bykvIihVVtK2GPBp6dcsmBh8xxIY',
 ];
 
 function sendToAgent($content, array $config)

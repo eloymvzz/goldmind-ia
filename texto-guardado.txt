@@ -1,0 +1,176 @@
+** PROMPT DE CONTEXTO **
+{
+  "nivel_educativo": "PREP",
+  "periodo": "2025",
+  "total_alumnos": "118",
+  "habilidades_intelectuales": {
+    "iha": {
+      "habilidad": "Aprendizaje",
+      "diagnostico": 57,
+      "referencia_nacional": "70",
+      "desviacion_estandar": 11,
+      "rango": "medio"
+    },
+    "ihv": {
+      "habilidad": "Verbal",
+      "diagnostico": 59,
+      "referencia_nacional": "70",
+      "desviacion_estandar": 14,
+      "rango": "medio"
+    },
+    "ir": {
+      "habilidad": "Razonamiento",
+      "diagnostico": 52,
+      "referencia_nacional": "70",
+      "desviacion_estandar": 29,
+      "rango": "medio"
+    },
+    "itd": {
+      "habilidad": "Toma de decisiones",
+      "diagnostico": 56,
+      "referencia_nacional": "70",
+      "desviacion_estandar": 16,
+      "rango": "medio"
+    },
+    "ihp": {
+      "habilidad": "Planeación",
+      "diagnostico": 55,
+      "referencia_nacional": "70",
+      "desviacion_estandar": 23,
+      "rango": "medio"
+    },
+    "ihl": {
+      "habilidad": "Lectura",
+      "diagnostico": 58,
+      "referencia_nacional": "70",
+      "desviacion_estandar": 10,
+      "rango": "medio"
+    },
+    "ihm": {
+      "habilidad": "Matemáticas",
+      "diagnostico": 54,
+      "referencia_nacional": "70",
+      "desviacion_estandar": 8,
+      "rango": "medio"
+    }
+  },
+  "indice_promedio_intelectuales": {
+    "diagnostico": 56,
+    "referencia_nacional": "70",
+    "desviacion_estandar": 8,
+    "rango": "medio"
+  },
+  "habilidades_socioemocionales": {
+    "ihintra": {
+      "habilidad": "Intrapersonales",
+      "diagnostico": 0,
+      "referencia_nacional": "70",
+      "desviacion_estandar": 0,
+      "rango": "bajo"
+    },
+    "ihinter": {
+      "habilidad": "Interpersonales",
+      "diagnostico": 0,
+      "referencia_nacional": "70",
+      "desviacion_estandar": 0,
+      "rango": "bajo"
+    },
+    "ihpv": {
+      "habilidad": "Para la vida",
+      "diagnostico": 0,
+      "referencia_nacional": "70",
+      "desviacion_estandar": 0,
+      "rango": "bajo"
+    }
+  },
+  "indice_promedio_socioemocionales": {
+    "diagnostico": 0,
+    "referencia_nacional": "70",
+    "desviacion_estandar": 11,
+    "rango": "bajo"
+  },
+  "preferencias_aprendizaje": {
+    "lenguaje_visual": {
+      "habilidad": "Lenguaje visual",
+      "preferencia_maestros": "MEDIO",
+      "preferencia_alumnos": "MEDIO"
+    },
+    "numerico_visual": {
+      "habilidad": "Numérico visual",
+      "preferencia_maestros": "MEDIO",
+      "preferencia_alumnos": "MEDIO"
+    },
+    "lenguaje_auditivo": {
+      "habilidad": "Lenguaje auditivo",
+      "preferencia_maestros": "MEDIO",
+      "preferencia_alumnos": "MEDIO"
+    },
+    "numerico_auditivo": {
+      "habilidad": "Numérico auditivo",
+      "preferencia_maestros": "MEDIO",
+      "preferencia_alumnos": "MEDIO"
+    },
+    "kinestesico": {
+      "habilidad": "Kinestésico",
+      "preferencia_maestros": "MEDIO",
+      "preferencia_alumnos": "MEDIO"
+    }
+  },
+  "preferencias_interaccion": {
+    "en_equipo": {
+      "habilidad": "En equipo",
+      "preferencia_maestros": "MEDIO",
+      "preferencia_alumnos": "MEDIO"
+    },
+    "individual": {
+      "habilidad": "Individual",
+      "preferencia_maestros": "MEDIO",
+      "preferencia_alumnos": "MEDIO"
+    }
+  },
+  "preferencias_comunicacion": {
+    "oral": {
+      "habilidad": "Oral",
+      "preferencia_maestros": "MEDIO",
+      "preferencia_alumnos": "MEDIO"
+    },
+    "escrito": {
+      "habilidad": "Escrito",
+      "preferencia_maestros": "MEDIO",
+      "preferencia_alumnos": "MEDIO"
+    }
+  },
+  "balance_psicosocial": {
+    "ansiedad": {
+      "habilidad": "Ansiedad",
+      "alumnos_riesgo": "28"
+    },
+    "adiccion_tecnologia": {
+      "habilidad": "Adiccion a la tecnología",
+      "alumnos_riesgo": "12"
+    },
+    "depresion": {
+      "habilidad": "Depresión",
+      "alumnos_riesgo": "18"
+    },
+    "autolesion": {
+      "habilidad": "Tendencia a la autolesión",
+      "alumnos_riesgo": "11"
+    },
+    "impulsos": {
+      "habilidad": "Bajo control de impulsos",
+      "alumnos_riesgo": "18"
+    },
+    "autoimagen": {
+      "habilidad": "Autoimagen negativa en RRSS",
+      "alumnos_riesgo": "10"
+    },
+    "bully": {
+      "habilidad": "Tendencia bully",
+      "alumnos_riesgo": "20"
+    }
+  }
+}
+
+
+** CONSULTA DEL USUARIO **
