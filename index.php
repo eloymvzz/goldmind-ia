@@ -164,42 +164,88 @@ function setCurlCaBundle($ch)
     }
 }
 
+function ensureWritableFile($path)
+{
+    $directory = dirname($path);
+
+    if (!is_dir($directory)) {
+        return ['ok' => false, 'error' => "La carpeta de almacenamiento no existe: {$directory}"];
+    }
+
+    if (!is_writable($directory)) {
+        return ['ok' => false, 'error' => "El servidor no tiene permisos de escritura en la carpeta: {$directory}"];
+    }
+
+    if (file_exists($path) && !is_writable($path)) {
+        return ['ok' => false, 'error' => "El archivo no se puede escribir: {$path}" ];
+    }
+
+    if (!file_exists($path)) {
+        $created = @file_put_contents($path, '');
+        if ($created === false) {
+            return ['ok' => false, 'error' => "No se pudo crear el archivo: {$path}"];
+        }
+
+        @chmod($path, 0664);
+    }
+
+    return ['ok' => true];
+}
+
 $savedContent = '';
 $userQuery = '';
 $agentReply = null;
 $agentError = null;
-$history = orderHistory(loadHistory($historyPath));
+$storageIssue = null;
 
-if (file_exists($filePath)) {
+$historyCheck = ensureWritableFile($historyPath);
+$fileCheck = ensureWritableFile($filePath);
+
+if (!$historyCheck['ok']) {
+    $storageIssue = $historyCheck['error'];
+}
+
+if (!$fileCheck['ok']) {
+    $storageIssue = $fileCheck['error'];
+}
+
+$history = $historyCheck['ok'] ? orderHistory(loadHistory($historyPath)) : [];
+
+if ($fileCheck['ok'] && file_exists($filePath)) {
     $savedContent = file_get_contents($filePath);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['delete_id'])) {
+    if ($storageIssue !== null) {
+        $agentError = $storageIssue;
+    } elseif (isset($_POST['delete_id'])) {
         deleteHistoryEntry($historyPath, $_POST['delete_id']);
         $history = orderHistory(loadHistory($historyPath));
     } else {
         $contenido = isset($_POST['contenido']) ? $_POST['contenido'] : '';
         $consulta = isset($_POST['consulta']) ? $_POST['consulta'] : '';
 
-        file_put_contents($filePath, $contenido);
-
-        $agentResult = sendToAgent($contenido, $consulta, $agentConfig);
-        if ($agentResult['ok']) {
-            $agentReply = $agentResult['reply'];
-
-            $historyEntry = [
-                'id' => uniqid('consulta_', true),
-                'timestamp' => time(),
-                'consulta' => $consulta,
-                'respuesta' => $agentReply,
-            ];
-
-            array_unshift($history, $historyEntry);
-            $history = orderHistory($history);
-            saveHistory($history, $historyPath);
+        $writeResult = file_put_contents($filePath, $contenido);
+        if ($writeResult === false) {
+            $agentError = 'No se pudo guardar el contenido en el servidor. Verifica los permisos de escritura.';
         } else {
-            $agentError = $agentResult['error'];
+            $agentResult = sendToAgent($contenido, $consulta, $agentConfig);
+            if ($agentResult['ok']) {
+                $agentReply = $agentResult['reply'];
+
+                $historyEntry = [
+                    'id' => uniqid('consulta_', true),
+                    'timestamp' => time(),
+                    'consulta' => $consulta,
+                    'respuesta' => $agentReply,
+                ];
+
+                array_unshift($history, $historyEntry);
+                $history = orderHistory($history);
+                saveHistory($history, $historyPath);
+            } else {
+                $agentError = $agentResult['error'];
+            }
         }
 
         $savedContent = $contenido;
@@ -366,6 +412,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <div class="container">
         <h1>Consulta IA GoldMind</h1>
+        <?php if ($storageIssue !== null): ?>
+            <div class="agent-error">
+                <h2>Problema con el almacenamiento</h2>
+                <p><?php echo htmlspecialchars($storageIssue, ENT_QUOTES, 'UTF-8'); ?></p>
+                <p style="margin-bottom: 0;">Revisa los permisos de escritura del servidor o crea manualmente los archivos "texto-guardado.txt" y "consultas-historial.txt" con permisos 664.</p>
+            </div>
+        <?php endif; ?>
         <form method="post">
             <h2>Prompt de contexto</h2>
             <textarea id="contenido" name="contenido"><?php echo htmlspecialchars($savedContent, ENT_QUOTES, 'UTF-8'); ?></textarea>
