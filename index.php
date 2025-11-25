@@ -164,33 +164,42 @@ function setCurlCaBundle($ch)
     }
 }
 
-function ensureWritableFile($path)
-{
-    $directory = dirname($path);
+  function ensureWritableFile($path)
+  {
+      $directory = dirname($path);
 
-    if (!is_dir($directory)) {
-        return ['ok' => false, 'error' => "La carpeta de almacenamiento no existe: {$directory}"];
-    }
+      if (!is_dir($directory)) {
+          return ['ok' => false, 'error' => "La carpeta de almacenamiento no existe: {$directory}"];
+      }
 
-    if (!is_writable($directory)) {
-        return ['ok' => false, 'error' => "El servidor no tiene permisos de escritura en la carpeta: {$directory}"];
-    }
+      $errorDetail = null;
+      set_error_handler(function ($errno, $errstr) use (&$errorDetail) {
+          $errorDetail = $errstr;
+          return true;
+      });
 
-    if (file_exists($path) && !is_writable($path)) {
-        return ['ok' => false, 'error' => "El archivo no se puede escribir: {$path}" ];
-    }
+      $appendFlag = file_exists($path) ? FILE_APPEND : 0;
+      $writeResult = @file_put_contents($path, '', $appendFlag);
 
-    if (!file_exists($path)) {
-        $created = @file_put_contents($path, '');
-        if ($created === false) {
-            return ['ok' => false, 'error' => "No se pudo crear el archivo: {$path}"];
-        }
+      restore_error_handler();
 
-        @chmod($path, 0664);
-    }
+      if ($writeResult === false) {
+          $hint = $errorDetail ? " Detalle: {$errorDetail}" : '';
+          $target = file_exists($path) ? 'archivo' : 'carpeta';
+          $targetPath = file_exists($path) ? $path : $directory;
 
-    return ['ok' => true];
-}
+          return [
+              'ok' => false,
+              'error' => "El servidor no tiene permisos de escritura en la {$target}: {$targetPath}." . $hint,
+          ];
+      }
+
+      if (!file_exists($path)) {
+          @chmod($path, 0664);
+      }
+
+      return ['ok' => true];
+  }
 
 $savedContent = '';
 $userQuery = '';
