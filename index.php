@@ -392,18 +392,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             inset: 0;
             background: rgba(0, 0, 0, 0.5);
             display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            align-items: stretch;
+            justify-content: stretch;
+            padding: 0;
             z-index: 1000;
         }
         .modal {
             background: #fff;
             padding: 20px;
-            border-radius: 8px;
-            max-width: 900px;
-            width: 100%;
-            max-height: 90vh;
+            border-radius: 0;
+            width: 100vw;
+            height: 100vh;
+            max-width: none;
+            max-height: none;
             overflow: auto;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
         }
