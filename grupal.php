@@ -5,10 +5,6 @@ $filePath = __DIR__ . '/texto-guardado-grupal.txt';
 $historyPath = __DIR__ . '/consultas-historial-grupal.txt';
 
 $configPath = __DIR__ . '/agent-config-grupal.php';
-$agentConfig = [
-    'endpoint' => 'https://izmzwere6pa5j2s2yifouo6o.agents.do-ai.run',
-    'apiKey' => 'RpKdKP-g2vwZgSaNy2VfLgJKJW-NTzvy',
-];
 if (file_exists($configPath)) {
     $loadedConfig = include $configPath;
     if (is_array($loadedConfig)) {
