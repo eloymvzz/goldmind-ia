@@ -44,8 +44,8 @@ function sendToAgent($contextContent, $userQuery, array $config)
             'Accept: application/json',
             'Authorization: Bearer ' . $config['apiKey'],
         ],
-        CURLOPT_TIMEOUT => 60,
-        CURLOPT_CONNECTTIMEOUT => 30,
+        CURLOPT_TIMEOUT => 120,
+        CURLOPT_CONNECTTIMEOUT => 60,
     ]);
 
     $response = curl_exec($ch);
@@ -319,6 +319,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         button:hover {
             background: #0069d9;
         }
+        .loading-indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            color: #0d6efd;
+            font-weight: 600;
+        }
+        .loading-indicator.visible {
+            display: inline-flex;
+        }
+        .loading-indicator .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #cfe2ff;
+            border-top-color: #0d6efd;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
         .agent-reply, .agent-error {
             margin-top: 16px;
             background: #fff;
@@ -428,13 +451,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p style="margin-bottom: 0;">Revisa los permisos de escritura del servidor o crea manualmente los archivos "texto-guardado.txt" y "consultas-historial.txt" con permisos 664.</p>
             </div>
         <?php endif; ?>
-        <form method="post">
+        <form method="post" id="agent-form">
             <h2>Prompt de contexto</h2>
             <textarea id="contenido" name="contenido"><?php echo htmlspecialchars($savedContent, ENT_QUOTES, 'UTF-8'); ?></textarea>
             <h2>Consulta del usuario</h2>
             <textarea id="consulta" name="consulta" placeholder="Escribe la consulta para el agente..."><?php echo htmlspecialchars($userQuery, ENT_QUOTES, 'UTF-8'); ?></textarea>
             <div class="actions">
-                <button type="submit">Ejecutar</button>
+                <button type="submit" id="submit-button">Ejecutar</button>
+            </div>
+            <div id="loading-indicator" class="loading-indicator" aria-live="polite">
+                <div class="spinner" aria-hidden="true"></div>
+                <span>Procesando consulta...</span>
             </div>
         </form>
         <?php if ($agentReply !== null): ?>
@@ -508,6 +535,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             lineWrapping: true,
             theme: 'default'
         });
+
+        var form = document.getElementById('agent-form');
+        var submitButton = document.getElementById('submit-button');
+        var loadingIndicator = document.getElementById('loading-indicator');
+
+        if (form && submitButton && loadingIndicator) {
+            form.addEventListener('submit', function() {
+                loadingIndicator.classList.add('visible');
+                submitButton.disabled = true;
+                submitButton.textContent = 'Procesando...';
+            });
+        }
 
         var replyContainer = document.getElementById('agent-reply');
         if (replyContainer) {
