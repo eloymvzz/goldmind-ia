@@ -45,8 +45,8 @@ function sendToAgent($contextContent, $userQuery, array $config)
             'Accept: application/json',
             'Authorization: Bearer ' . $config['apiKey'],
         ],
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 60,
+        CURLOPT_CONNECTTIMEOUT => 30,
     ]);
 
     $response = curl_exec($ch);
